@@ -17,8 +17,8 @@
 
 use std::ops::Bound;
 use std::path::Path;
-use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -108,6 +108,8 @@ impl MemTable {
         //week 1 day 1
         self.map
             .insert(Bytes::copy_from_slice(_key), Bytes::copy_from_slice(_value));
+        self.approximate_size
+            .fetch_add(_key.len() + _value.len(), Ordering::SeqCst);
         return Ok(());
     }
 
@@ -149,7 +151,7 @@ impl MemTable {
 }
 
 type SkipMapRangeIter<'a> =
-crossbeam_skiplist::map::Range<'a, Bytes, (Bound<Bytes>, Bound<Bytes>), Bytes, Bytes>;
+    crossbeam_skiplist::map::Range<'a, Bytes, (Bound<Bytes>, Bound<Bytes>), Bytes, Bytes>;
 
 /// An iterator over a range of `SkipMap`. This is a self-referential structure and please refer to week 1, day 2
 /// chapter for more information.
