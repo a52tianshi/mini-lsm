@@ -93,10 +93,7 @@ impl MemTable {
     /// Get a value by key.
     pub fn get(&self, _key: &[u8]) -> Option<Bytes> {
         let entry = self.map.get(&Bytes::copy_from_slice(_key));
-        match entry {
-            Some(e) => Some(e.value().clone()),
-            None => None,
-        }
+        entry.map(|entry| entry.value().clone())
     }
 
     /// Put a key-value pair into the mem-table.
@@ -110,7 +107,7 @@ impl MemTable {
             .insert(Bytes::copy_from_slice(_key), Bytes::copy_from_slice(_value));
         self.approximate_size
             .fetch_add(_key.len() + _value.len(), Ordering::SeqCst);
-        return Ok(());
+        Ok(())
     }
 
     /// Implement this in week 3, day 5; if you want to implement this earlier, use `&[u8]` as the key type.
