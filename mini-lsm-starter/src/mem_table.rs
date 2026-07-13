@@ -17,8 +17,8 @@
 
 use std::ops::Bound;
 use std::path::Path;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -124,7 +124,23 @@ impl MemTable {
 
     /// Get an iterator over a range of keys.
     pub fn scan(&self, _lower: Bound<&[u8]>, _upper: Bound<&[u8]>) -> MemTableIterator {
-        unimplemented!()
+        let (lower, upper) = (map_bound(_lower), map_bound(_upper));
+
+        let mut iter = MemTableIteratorBuilder {
+            map: self.map.clone(),
+            iter_builder: |map| map.range((lower, upper)), // 借用的是结构体内部的 map
+            item: (Bytes::new(), Bytes::new()),            // 先用空条目占位
+        }.build();
+
+        // 预读第一个条目，让迭代器构造完就指向第一个元素
+        let entry = iter.with_iter_mut(|it| {
+            it.next()
+                .map(|e| (e.key().clone(), e.value().clone()))
+                .unwrap_or_default() // 范围为空 → (空, 空)，is_valid() 会返回 false
+        });
+        iter.with_mut(|this| *this.item = entry);
+
+        iter
     }
 
     /// Flush the mem-table to SSTable. Implement in week 1 day 6.
@@ -148,7 +164,7 @@ impl MemTable {
 }
 
 type SkipMapRangeIter<'a> =
-    crossbeam_skiplist::map::Range<'a, Bytes, (Bound<Bytes>, Bound<Bytes>), Bytes, Bytes>;
+crossbeam_skiplist::map::Range<'a, Bytes, (Bound<Bytes>, Bound<Bytes>), Bytes, Bytes>;
 
 /// An iterator over a range of `SkipMap`. This is a self-referential structure and please refer to week 1, day 2
 /// chapter for more information.
@@ -170,18 +186,24 @@ impl StorageIterator for MemTableIterator {
     type KeyType<'a> = KeySlice<'a>;
 
     fn value(&self) -> &[u8] {
-        unimplemented!()
+        self.borrow_item().1.as_ref()
     }
 
     fn key(&self) -> KeySlice<'_> {
-        unimplemented!()
+        KeySlice::from_slice(self.borrow_item().0.as_ref())
     }
 
     fn is_valid(&self) -> bool {
-        unimplemented!()
+        !self.key().is_empty()
     }
 
     fn next(&mut self) -> Result<()> {
-        unimplemented!()
+        self.with_mut(|this| {
+            let e = this.iter.next();
+            *this.item = e.map(
+                |e| (e.key().clone(), e.value().clone())).
+                unwrap_or_else(|| (Bytes::new(), Bytes::new()));
+        });
+        Ok(())
     }
 }
