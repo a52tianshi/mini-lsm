@@ -138,6 +138,7 @@ impl MemTable {
                 .map(|e| (e.key().clone(), e.value().clone()))
                 .unwrap_or_default() // 范围为空 → (空, 空)，is_valid() 会返回 false
         });
+        // update 当前指向
         iter.with_mut(|this| *this.item = entry);
 
         iter
