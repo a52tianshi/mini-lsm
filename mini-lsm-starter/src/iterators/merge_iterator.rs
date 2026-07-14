@@ -76,8 +76,8 @@ impl<I: StorageIterator> MergeIterator<I> {
     }
 }
 
-impl<I: 'static + for<'a> StorageIterator<KeyType<'a>=KeySlice<'a>>> StorageIterator
-for MergeIterator<I>
+impl<I: 'static + for<'a> StorageIterator<KeyType<'a> = KeySlice<'a>>> StorageIterator
+    for MergeIterator<I>
 {
     type KeyType<'a> = KeySlice<'a>;
 
@@ -91,7 +91,7 @@ for MergeIterator<I>
 
     fn is_valid(&self) -> bool {
         let key = self.current.as_ref();
-        match key { 
+        match key {
             Some(key) => key.1.is_valid(),
             None => false,
         }

@@ -17,8 +17,8 @@
 
 use std::ops::Bound;
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -130,7 +130,8 @@ impl MemTable {
             map: self.map.clone(),
             iter_builder: |map| map.range((lower, upper)), // 借用的是结构体内部的 map
             item: (Bytes::new(), Bytes::new()),            // 先用空条目占位
-        }.build();
+        }
+        .build();
 
         // 预读第一个条目，让迭代器构造完就指向第一个元素
         let entry = iter.with_iter_mut(|it| {
@@ -165,7 +166,7 @@ impl MemTable {
 }
 
 type SkipMapRangeIter<'a> =
-crossbeam_skiplist::map::Range<'a, Bytes, (Bound<Bytes>, Bound<Bytes>), Bytes, Bytes>;
+    crossbeam_skiplist::map::Range<'a, Bytes, (Bound<Bytes>, Bound<Bytes>), Bytes, Bytes>;
 
 /// An iterator over a range of `SkipMap`. This is a self-referential structure and please refer to week 1, day 2
 /// chapter for more information.
@@ -201,9 +202,9 @@ impl StorageIterator for MemTableIterator {
     fn next(&mut self) -> Result<()> {
         self.with_mut(|this| {
             let e = this.iter.next();
-            *this.item = e.map(
-                |e| (e.key().clone(), e.value().clone())).
-                unwrap_or_else(|| (Bytes::new(), Bytes::new()));
+            *this.item = e
+                .map(|e| (e.key().clone(), e.value().clone()))
+                .unwrap_or_else(|| (Bytes::new(), Bytes::new()));
         });
         Ok(())
     }

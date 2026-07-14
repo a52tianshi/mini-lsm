@@ -15,10 +15,10 @@
 #![allow(unused_variables)] // TODO(you): remove this lint after implementing this mod
 #![allow(dead_code)] // TODO(you): remove this lint after implementing this mod
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use crate::{
-    iterators::{merge_iterator::MergeIterator, StorageIterator},
+    iterators::{StorageIterator, merge_iterator::MergeIterator},
     mem_table::MemTableIterator,
 };
 
@@ -85,7 +85,7 @@ impl<I: StorageIterator> FusedIterator<I> {
 
 impl<I: StorageIterator> StorageIterator for FusedIterator<I> {
     type KeyType<'a>
-    = I::KeyType<'a>
+        = I::KeyType<'a>
     where
         Self: 'a;
 
