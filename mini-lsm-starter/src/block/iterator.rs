@@ -85,17 +85,15 @@ impl BlockIterator {
         }
 
         let data = &self.block.data;
-        let offset = self.block.offsets[0] as usize;
 
-        let key_len = u16::from_le_bytes([data[offset], data[offset + 1]]) as usize;
-        let key_start = offset + 2;
-        let key_end = key_start + key_len;
+        let key_len = u16::from_le_bytes([data[0], data[1]]) as usize;
+        let key_end = 2 + key_len;
 
         let value_len =
             u16::from_le_bytes([data[key_end], data[key_end + 1]]) as usize;
         let value_start = key_end + 2;
 
-        self.key = KeyVec::from_vec(data[key_start..key_end].to_vec());
+        self.key = KeyVec::from_vec(data[2..key_end].to_vec());
         self.value_range = (value_start, value_start + value_len);
         self.idx = 0;
 
