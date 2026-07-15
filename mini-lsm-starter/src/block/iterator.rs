@@ -16,7 +16,6 @@
 #![allow(dead_code)] // TODO(you): remove this lint after implementing this mod
 
 use crate::key::{KeySlice, KeyVec};
-use nom::number::u8;
 use std::sync::Arc;
 
 use super::Block;
