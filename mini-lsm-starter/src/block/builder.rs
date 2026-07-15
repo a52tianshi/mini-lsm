@@ -48,7 +48,7 @@ impl BlockBuilder {
     pub fn add(&mut self, key: KeySlice, value: &[u8]) -> bool {
         let now_size = self.data.len() + self.offsets.len() * 2 + 2;
         let added_entry_size = 2 + key.len() + 2 + value.len();
-        if now_size + added_entry_size + 2 > self.block_size && !self.first_key.is_empty(){
+        if now_size + added_entry_size + 2 > self.block_size && !self.first_key.is_empty() {
             return false;
         }
         if self.first_key.is_empty() {
@@ -57,9 +57,11 @@ impl BlockBuilder {
         self.offsets.push(self.data.len() as u16);
 
         // entry 布局: key_len | key | value_len | value
-        self.data.extend_from_slice(&(key.len() as u16).to_le_bytes());
+        self.data
+            .extend_from_slice(&(key.len() as u16).to_le_bytes());
         self.data.extend_from_slice(key.raw_ref());
-        self.data.extend_from_slice(&(value.len() as u16).to_le_bytes());
+        self.data
+            .extend_from_slice(&(value.len() as u16).to_le_bytes());
         self.data.extend_from_slice(value);
 
         true
