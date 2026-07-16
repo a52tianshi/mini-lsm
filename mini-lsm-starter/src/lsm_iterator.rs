@@ -15,7 +15,7 @@
 #![allow(unused_variables)] // TODO(you): remove this lint after implementing this mod
 #![allow(dead_code)] // TODO(you): remove this lint after implementing this mod
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 
 use crate::{
     iterators::{StorageIterator, merge_iterator::MergeIterator},
@@ -31,7 +31,17 @@ pub struct LsmIterator {
 
 impl LsmIterator {
     pub(crate) fn new(iter: LsmIteratorInner) -> Result<Self> {
-        Ok(Self { inner: iter })
+        let mut lsm_iter = Self { inner: iter };
+        lsm_iter.skip_deleted()?;
+        Ok(lsm_iter)
+    }
+
+    // 跳过被删除的 key(墓碑,即 value 为空的记录)
+    fn skip_deleted(&mut self) -> Result<()> {
+        while self.inner.is_valid() && self.inner.value().is_empty() {
+            self.inner.next()?;
+        }
+        Ok(())
     }
 }
 
@@ -39,19 +49,20 @@ impl StorageIterator for LsmIterator {
     type KeyType<'a> = &'a [u8];
 
     fn is_valid(&self) -> bool {
-        unimplemented!()
+        self.inner.is_valid()
     }
 
     fn key(&self) -> &[u8] {
-        unimplemented!()
+        self.inner.key().raw_ref()
     }
 
     fn value(&self) -> &[u8] {
-        unimplemented!()
+        self.inner.value()
     }
 
     fn next(&mut self) -> Result<()> {
-        unimplemented!()
+        self.inner.next()?;
+        self.skip_deleted()
     }
 }
 
@@ -79,18 +90,25 @@ impl<I: StorageIterator> StorageIterator for FusedIterator<I> {
         Self: 'a;
 
     fn is_valid(&self) -> bool {
-        unimplemented!()
+        !self.has_errored && self.iter.is_valid()
     }
 
     fn key(&self) -> Self::KeyType<'_> {
-        unimplemented!()
+        self.iter.key()
     }
 
     fn value(&self) -> &[u8] {
-        unimplemented!()
+        self.iter.value()
     }
 
     fn next(&mut self) -> Result<()> {
-        unimplemented!()
+        if self.has_errored {
+            return Err(anyhow!("FusedIterator errored"));
+        }
+        let result = self.iter.next();
+        if result.is_err() {
+            self.has_errored = true;
+        }
+        result
     }
 }

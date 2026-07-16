@@ -18,7 +18,7 @@
 use std::ops::Bound;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -53,7 +53,12 @@ pub(crate) fn map_bound(bound: Bound<&[u8]>) -> Bound<Bytes> {
 impl MemTable {
     /// Create a new mem-table.
     pub fn create(_id: usize) -> Self {
-        unimplemented!()
+        Self {
+            map: Arc::new(SkipMap::new()),
+            wal: None,
+            id: _id,
+            approximate_size: Arc::new(AtomicUsize::new(0)),
+        }
     }
 
     /// Create a new mem-table with WAL
@@ -87,7 +92,8 @@ impl MemTable {
 
     /// Get a value by key.
     pub fn get(&self, _key: &[u8]) -> Option<Bytes> {
-        unimplemented!()
+        let entry = self.map.get(&Bytes::copy_from_slice(_key));
+        entry.map(|entry| entry.value().clone())
     }
 
     /// Put a key-value pair into the mem-table.
@@ -96,7 +102,12 @@ impl MemTable {
     /// In week 2, day 6, also flush the data to WAL.
     /// In week 3, day 5, modify the function to use the batch API.
     pub fn put(&self, _key: &[u8], _value: &[u8]) -> Result<()> {
-        unimplemented!()
+        //week 1 day 1
+        self.map
+            .insert(Bytes::copy_from_slice(_key), Bytes::copy_from_slice(_value));
+        self.approximate_size
+            .fetch_add(_key.len() + _value.len(), Ordering::SeqCst);
+        Ok(())
     }
 
     /// Implement this in week 3, day 5; if you want to implement this earlier, use `&[u8]` as the key type.
@@ -113,7 +124,25 @@ impl MemTable {
 
     /// Get an iterator over a range of keys.
     pub fn scan(&self, _lower: Bound<&[u8]>, _upper: Bound<&[u8]>) -> MemTableIterator {
-        unimplemented!()
+        let (lower, upper) = (map_bound(_lower), map_bound(_upper));
+
+        let mut iter = MemTableIteratorBuilder {
+            map: self.map.clone(),
+            iter_builder: |map| map.range((lower, upper)), // 借用的是结构体内部的 map
+            item: (Bytes::new(), Bytes::new()),            // 先用空条目占位
+        }
+        .build();
+
+        // 预读第一个条目，让迭代器构造完就指向第一个元素
+        let entry = iter.with_iter_mut(|it| {
+            it.next()
+                .map(|e| (e.key().clone(), e.value().clone()))
+                .unwrap_or_default() // 范围为空 → (空, 空)，is_valid() 会返回 false
+        });
+        // update 当前指向
+        iter.with_mut(|this| *this.item = entry);
+
+        iter
     }
 
     /// Flush the mem-table to SSTable. Implement in week 1 day 6.
@@ -159,18 +188,24 @@ impl StorageIterator for MemTableIterator {
     type KeyType<'a> = KeySlice<'a>;
 
     fn value(&self) -> &[u8] {
-        unimplemented!()
+        self.borrow_item().1.as_ref()
     }
 
     fn key(&self) -> KeySlice<'_> {
-        unimplemented!()
+        KeySlice::from_slice(self.borrow_item().0.as_ref())
     }
 
     fn is_valid(&self) -> bool {
-        unimplemented!()
+        !self.key().is_empty()
     }
 
     fn next(&mut self) -> Result<()> {
-        unimplemented!()
+        self.with_mut(|this| {
+            let e = this.iter.next();
+            *this.item = e
+                .map(|e| (e.key().clone(), e.value().clone()))
+                .unwrap_or_else(|| (Bytes::new(), Bytes::new()));
+        });
+        Ok(())
     }
 }
